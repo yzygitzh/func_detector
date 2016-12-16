@@ -5,7 +5,7 @@ import os
 import argparse
 import subprocess
 
-def tester(device_id, apk_path_list, interval, duration, event_policy, output_dir):
+def tester_func(device_id, apk_path_list, interval, duration, event_policy, output_dir):
     """
     test apks on the assigned vm/device
     """
@@ -41,15 +41,15 @@ def run(config_json_path):
 
     # start testers
     apk_trunk_len = (len(apk_path_list) + device_num - 1) / device_num
-    testor_list = []
+    tester_list = []
     for i in range(device_num):
-        testor_list.append(Process(target=tester, args=(
+        tester_list.append(Process(target=tester_func, args=(
             device_id_list[i], apk_path_list[i * apk_trunk_len: (i + 1) * apk_trunk_len],
             interval, duration, event_policy, output_dir)))
-        testor_list[-1].start()
+        tester_list[-1].start()
 
-    for i in range(device_num):
-        testor_list[i].join()
+    for tester in tester_list:
+        tester.join()
 
 
 def parse_args():
