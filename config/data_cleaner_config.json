@@ -1,4 +1,5 @@
 {
+    "process_num": 8,
     "droidbot_out_dir": "/mnt/EXT_volume/lab_data/func_detector_out/droidbot_out/WEATHER/",
     "output_dir": "/mnt/EXT_volume/lab_data/func_detector_out/data_cleaner_out/"
 }
