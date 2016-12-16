@@ -3,11 +3,11 @@
         "192.168.56.102:5555",
         "192.168.56.103:5555",
         "192.168.56.104:5555",
-        "192.168.56.105:5555"
+        "192.168.56.106:5555"
     ],
-    "apk_directory": "/mnt/EXT_volume/lab_data/func_detector_data/app_list/WEATHER/apps/",
+    "apk_directory": "/mnt/EXT_volume/lab_data/func_detector_data/app_list/COMMUNICATION/apps/",
     "interval": 3,
     "duration": 600,
     "event_policy": "utg_dynamic",
-    "output_dir": "/mnt/EXT_volume/lab_data/func_detector_out/WEATHER/"
+    "output_dir": "/mnt/EXT_volume/lab_data/func_detector_out/COMMUNICATION/"
 }
