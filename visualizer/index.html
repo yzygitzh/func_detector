@@ -1,0 +1,135 @@
+<html>
+<head>
+<style type="text/css">
+  #Container{
+    width:1600px;
+    margin:0 auto;
+    background:#FFF;
+  }
+  #Header{
+    height:80px;
+    background:#FFF;
+  }
+  #Content{
+    margin-top:20px;
+    background:#FFF;
+  }
+  #Content-Left{
+    height:640px;
+    width:520px;
+    margin:20px;
+    float:left;
+    background:#FFF;
+  }
+  #package_info{
+    height:20px;
+    width:480px;
+    margin:20px;
+    background:#FFF;
+  }
+  #graph_container{
+    height:480px;
+    width:480px;
+    margin:20px;
+    background:#FFF;
+  }
+  #info_container{
+    height:100px;
+    width:480px;
+    margin:20px;
+    background:#FFF;
+  }
+  #info_container img{
+    max-width: 480px;
+    max-height: 100px;
+  }
+  #source_screen{
+    margin:20px;
+    float:left;
+    background:#FFF;
+  }
+  #target_screen{
+    height:640px;
+    width:384px;
+    margin:20px;
+    float:left;
+    background:#FFF;
+  }
+  #checkbox_area{
+    background:#FFF;
+    margin-top:20px;
+  }
+  #Footer{
+    height:40px;
+    background:#FFF;
+    margin-top:20px;
+  }
+  .Clear{
+    clear:both;
+  }
+</style>
+</head>
+<body>
+<div id="Container">
+    <div id="Header">
+        <p><font size="16px">Activity Functional Marker</font></p>
+    </div>
+    <div id="Content">
+        <div id="Content-Left">
+            <div id="package_info">
+              <select id="package_select" onchange="select_package(this.id)">
+              </select>
+            </div>
+            <div id="graph_container"></div>
+            <div id="info_container">
+              <div id="edge_info">edge info container</div>
+              <div id="indicator">?/?</div>
+              <input type="submit" name="bp" value="Prev" onClick="onPrev()">
+              <input type="submit" name="bn" value="Next" onClick="onNext()">
+            </div>
+        </div>
+        <canvas id="source_screen" width="384px" height="640px"></canvas>
+        <div id="target_screen">target_screen</div>
+    </div>
+    <div class="Clear"></div>
+    <div id="checkbox_area">
+        <input type="checkbox" value="1" name="function">1
+        <input type="checkbox" value="2" name="function">2
+        <input type="checkbox" value="3" name="function">3
+        <input type="checkbox" value="4" name="function">4
+        <input type="checkbox" value="5" name="function">5
+    </div>
+    <div id="response_area"></div>
+    <div id="Footer">OSLab</div>
+</div>
+
+<script src="jquery/jquery-2.1.1.min.js"></script>
+<script src="viewer.js"></script>
+
+<script>
+  $.ajax({
+    url: "data/transition_json",
+    success: function(data){
+      //console.log(data)
+      var select_obj = document.getElementById('package_select');
+      select_obj.options.add(new Option("==Please select a package name==", ""));
+      $(data).find("li > a").each(function(){
+        //console.log("Found a file: " + $(this).attr("href"));
+        var log_name = $(this).attr("href").slice(0, -".json".length)
+        select_obj.options.add(new Option(log_name, log_name));
+      });
+    }
+  });
+  function select_package(id) {
+    var package_name = document.getElementById(id);
+    if (package_name.value != ""){
+      console.log(package_name.value);
+      var jsonroot = "output/" + package_name.value + ".json";
+      $.getJSON(jsonroot, function(content){
+        createGraph(content, package_name.value);
+      });
+    }
+  }
+</script>
+</body>
+</html>

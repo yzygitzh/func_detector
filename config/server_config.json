@@ -1,0 +1,18 @@
+{
+    "db_host": "127.0.0.1",
+    "db_port": 27017,
+    "server_port": 8888,
+    "db": "func_detector",
+    "unknown_collection": "func_unknown",
+    "known_collection": "func_known",
+    "func_list": [
+        "COMMUNICATION",
+        "PRODUCTIVITY",
+        "TRANSPORTATION",
+        "WEATHER",
+        "NEWS_AND_MAGAZINES",
+        "TOOLS",
+        "TRAVEL_AND_LOCAL"
+    ],
+    "apk_bundle_list_path": "/mnt/EXT_volume/lab_data/func_detector_out/data_cleaner_out/"
+}
