@@ -1,5 +1,19 @@
 {
     "process_num": 8,
     "droidbot_out_dir": "/mnt/EXT_volume/lab_data/func_detector_out/droidbot_out/WEATHER/",
-    "output_dir": "/mnt/EXT_volume/lab_data/func_detector_out/data_cleaner_out/"
+    "output_dir": "/mnt/EXT_volume/lab_data/func_detector_out/data_cleaner_out/",
+    "exclude_activities": [
+        "android/com.android.internal.app.ChooserActivity",
+        "android/com.android.internal.app.ResolverActivity",
+        "com.android.launcher/com.android.launcher2.Launcher",
+        "com.android.browser/.BrowserActivity",
+        "com.android.settings/.Settings",
+        "com.android.settings/.SubSettings",
+        "com.android.gallery/com.android.camera.ImageGallery",
+        "com.android.bluetooth/.opp.BluetoothOppBtEnableActivity",
+        "com.android.wallpaper.livepicker/.LiveWallpaperPreview",
+        "com.android.mms/.ui.ComposeMessageActivity",
+        "com.android.systemui/.recent.RecentsActivity",
+        "com.android.quicksearchbox/.SearchActivity"
+    ]
 }
