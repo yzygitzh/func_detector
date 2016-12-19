@@ -4,6 +4,7 @@ import cgi
 import json
 import os
 import argparse
+import urlparse
 
 from pymongo import MongoClient
 
@@ -41,11 +42,21 @@ def run(config_json_path):
             self.wfile.write("post success")
 
         def do_GET(self):
-            get_target = self.requestline.split()[1][1:]
-            if get_target == "fetch_one_activity_bundle":
+            parse_result = urlparse.urlparse(self.path)
+            path = parse_result.path
+            query = parse_result.query
+            if path == "/fetch_func_list":
+                self.header_helper_200("application/json")
+                self.wfile.write(config_json["func_list"])
+            elif path == "/fetch_one_activity_bundle":
                 self.header_helper_200("application/json")
                 cursor = db[config_json["unknown_collection"]].find()
                 self.wfile.write(cursor.next())
+            elif path == "/fetch_img":
+                query_components = {x[0]: x[1] for x in [x.split("=") for x in query.split("&")]}
+                with open(query_components["path"], "r") as img_file:
+                    self.header_helper_200("image/png")
+                    self.wfile.write(img_file.read())
             else:
                 SimpleHTTPRequestHandler.do_GET(self)
 
