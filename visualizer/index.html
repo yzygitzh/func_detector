@@ -6,6 +6,7 @@
     <div id="Header">
         <p><font size="16px">Activity Functional Marker</font></p>
     </div>
+    <div id="Package"></div>
     <canvas id="Screenshot" width="384px" height="640px"></canvas>
     <div id="Checkbox">
         <input type="checkbox" value="1" name="function">1
@@ -21,19 +22,12 @@
 <script src="jquery/jquery-2.1.1.min.js"></script>
 
 <script>
-  $.ajax({
-    url: "data/transition_json",
-    success: function(data){
-      //console.log(data)
-      var select_obj = document.getElementById('package_select');
-      select_obj.options.add(new Option("==Please select a package name==", ""));
-      $(data).find("li > a").each(function(){
-        //console.log("Found a file: " + $(this).attr("href"));
-        var log_name = $(this).attr("href").slice(0, -".json".length)
-        select_obj.options.add(new Option(log_name, log_name));
-      });
+  $.get(
+    "fetch_one_activity_bundle",
+    function(data) {
+      console.log(data)
     }
-  });
+  );
   function select_package(id) {
     var package_name = document.getElementById(id);
     if (package_name.value != ""){

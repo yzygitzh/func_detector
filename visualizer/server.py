@@ -19,10 +19,11 @@ def run(config_json_path):
     db = client[config_json["db"]]
 
     class myHandler(SimpleHTTPRequestHandler):
-        def header_helper_200(self, mime_type):
+        def header_helper_200(self, mime_type, content_len):
             self.send_response(200)
             self.send_header("Content-Type", mime_type)
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(content_len))
+            self.send_header("Last-Modified", self.date_time_string())
             self.end_headers()
 
         def do_POST(self):
@@ -38,7 +39,7 @@ def run(config_json_path):
             fwrite.write(json.dumps(mark_dict) + "\n")
             fwrite.close()
 
-            self.header_helper_200("text/html")
+            self.header_helper_200("text/html", len("post success"))
             self.wfile.write("post success")
 
         def do_GET(self):
@@ -46,16 +47,19 @@ def run(config_json_path):
             path = parse_result.path
             query = parse_result.query
             if path == "/fetch_func_list":
-                self.header_helper_200("application/json")
-                self.wfile.write(config_json["func_list"])
+                json_str = json.dumps(config_json["func_list"])
+                self.header_helper_200("application/json", len(json_str))
+                self.wfile.write(json_str)
             elif path == "/fetch_one_activity_bundle":
-                self.header_helper_200("application/json")
-                cursor = db[config_json["unknown_collection"]].find()
-                self.wfile.write(cursor.next())
+                activity_json = db[config_json["unknown_collection"]].find().next()
+                activity_json.pop("_id")
+                json_str = json.dumps(activity_json)
+                self.header_helper_200("application/json", len(json_str))
+                self.wfile.write(json_str)
             elif path == "/fetch_img":
                 query_components = {x[0]: x[1] for x in [x.split("=") for x in query.split("&")]}
-                with open(query_components["path"], "r") as img_file:
-                    self.header_helper_200("image/png")
+                with open(query_components["path"], "rb") as img_file:
+                    self.header_helper_200("image/png", os.fstat(img_file.fileno())[6])
                     self.wfile.write(img_file.read())
             else:
                 SimpleHTTPRequestHandler.do_GET(self)
