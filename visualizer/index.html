@@ -1,20 +1,12 @@
 <html>
-<head>
-</head>
+<head><h1>Activity Functional Marker</h1></head>
 <body>
 <div id="Container">
-    <div id="Header">
-        <p><font size="16px">Activity Functional Marker</font></p>
-    </div>
     <div id="Package"></div>
     <canvas id="Screenshot" width="384px" height="640px"></canvas>
-    <div id="Checkbox">
-        <input type="checkbox" value="1" name="function">1
-        <input type="checkbox" value="2" name="function">2
-        <input type="checkbox" value="3" name="function">3
-        <input type="checkbox" value="4" name="function">4
-        <input type="checkbox" value="5" name="function">5
-    </div>
+    <div id="RadioArea"></div>
+    <button type="button" onclick="onSubmit()">Submit</button>
+    <button type="button" onclick="reloadPage()">Next</button>
     <div id="Response"></div>
     <div id="Footer">OSLab</div>
 </div>
@@ -22,22 +14,56 @@
 <script src="jquery/jquery-2.1.1.min.js"></script>
 
 <script>
-  $.get(
-    "fetch_one_activity_bundle",
-    function(data) {
-      console.log(data)
-    }
-  );
-  function select_package(id) {
-    var package_name = document.getElementById(id);
-    if (package_name.value != ""){
-      console.log(package_name.value);
-      var jsonroot = "output/" + package_name.value + ".json";
-      $.getJSON(jsonroot, function(content){
-        createGraph(content, package_name.value);
-      });
-    }
+  var screenshotCanvas = document.getElementById("Screenshot");
+  var ctx = screenshotCanvas.getContext("2d");
+  var img = new Image;
+
+  function reloadPage(){
+    $.get(
+      "fetch_one_activity_bundle",
+      function(activityBundle) {
+        document.getElementById("Package").innerHTML = activityBundle["activity"];
+        document.getElementById("Screenshot").oninvalid;
+        img.src = "fetch_img?path=" + activityBundle["info"]["screenshot_path_list"][0];
+      }
+    );
+    document.getElementById("Response").innerHTML = "";
   }
+
+  function initPage(){
+    img.onload = function(){
+      ctx.drawImage(img, 0, 0, 384, 640);
+    }
+    $.get(
+      "fetch_func_list",
+      function(funcList){
+        funcList.push("OTHER");
+        checkboxArea = document.getElementById("RadioArea");
+        checkboxArea.innerHTML = funcList.map(function assembleCheckItem(func){
+          return "<input class=\"funcRadio\" type=\"radio\" value=\"" +
+                 func +
+                 "\" name=\"function\">" +
+                 func + "</br>";
+        }).join("");
+      }
+    )
+    reloadPage();
+  }
+
+  function onSubmit(){
+    console.log($(".funcRadio:checked").val())
+    $.post(
+      "submit", {
+        "activity": document.getElementById("Package").innerHTML,
+        "func": $(".funcRadio:checked").val()
+      },
+      function(data, status, xhr) {
+        document.getElementById("Response").innerHTML = data;
+      }
+    )
+  }
+
+  initPage();
 </script>
 </body>
 </html>
