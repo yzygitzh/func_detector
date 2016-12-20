@@ -11,10 +11,6 @@ from pymongo import MongoClient
 
 def run(config_json_path):
     config_json = json.load(open(os.path.abspath(config_json_path), "r"))
-
-    func_list = config_json["func_list"]
-    apk_bundle_list_path = config_json["apk_bundle_list_path"]
-
     client = MongoClient(host=config_json["db_host"], port=config_json["db_port"])
     db = client[config_json["db"]]
 
@@ -32,15 +28,19 @@ def run(config_json_path):
                 headers=self.headers,
                 environ={"REQUEST_METHOD":"POST"})
 
-            source_screen = form.getvalue("activity_name", "")
-            mark_dict = {"source": source_screen}
+            activity = form.getvalue("activity", "")
+            func = form.getvalue("func", "")
+            mongo_json = {"activity": activity, "func": func}
 
-            fwrite = open("mark_result/mark_result.log", "a")
-            fwrite.write(json.dumps(mark_dict) + "\n")
-            fwrite.close()
+            db[config_json["known_collection"]].update_one(
+                {"activity": activity},
+                {"$set": {"func": func}},
+                upsert=True
+            )
+            db[config_json["unknown_collection"]].delete_one({"activity": activity})
 
-            self.header_helper_200("text/html", len("post success"))
-            self.wfile.write("post success")
+            self.header_helper_200("text/html", len("submit success"))
+            self.wfile.write("submit success")
 
         def do_GET(self):
             parse_result = urlparse.urlparse(self.path)

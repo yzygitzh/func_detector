@@ -6,13 +6,11 @@
     "unknown_collection": "func_unknown",
     "known_collection": "func_known",
     "func_list": [
-        "COMMUNICATION",
-        "PRODUCTIVITY",
-        "TRANSPORTATION",
+        "SCHEDULE",
+        "APP_MANAGE",
+        "MAP_LOCATION",
         "WEATHER",
-        "NEWS_AND_MAGAZINES",
-        "TOOLS",
-        "TRAVEL_AND_LOCAL"
+        "NEWS_AND_MAGAZINES"
     ],
     "apk_bundle_list_path": "/mnt/EXT_volume/lab_data/func_detector_out/data_cleaner_out/"
 }
