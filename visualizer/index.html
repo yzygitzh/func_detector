@@ -5,7 +5,7 @@
     <div id="Package"></div>
     <canvas id="Screenshot" width="384px" height="640px"></canvas>
     <div id="RadioArea"></div>
-    <button type="button" onclick="onSubmit()">Submit</button>
+    <button type="button" onclick="onSubmit()" accesskey="s">Submit</button>
     <div id="Response"></div>
     <div id="Footer">OSLab</div>
 </div>
@@ -16,6 +16,7 @@
   var screenshotCanvas = document.getElementById("Screenshot");
   var ctx = screenshotCanvas.getContext("2d");
   var img = new Image;
+  var accessKeyList = ["z", "x", "c", "v", "b", "n"]
 
   function reloadPage(){
     $.get(
@@ -38,10 +39,10 @@
       function(funcList){
         funcList.push("OTHER");
         checkboxArea = document.getElementById("RadioArea");
-        checkboxArea.innerHTML = funcList.map(function assembleCheckItem(func){
+        checkboxArea.innerHTML = funcList.map(function assembleCheckItem(func, idx){
           return "<input class=\"funcRadio\" type=\"radio\" value=\"" +
                  func +
-                 "\" name=\"function\">" +
+                 "\" name=\"function\" accesskey=\"" + accessKeyList[idx] + "\">" +
                  func + "</br>";
         }).join("");
       }

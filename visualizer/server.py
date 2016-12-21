@@ -5,6 +5,7 @@ import json
 import os
 import argparse
 import urlparse
+import socket
 
 from pymongo import MongoClient
 
@@ -14,7 +15,10 @@ def run(config_json_path):
     client = MongoClient(host=config_json["db_host"], port=config_json["db_port"])
     db = client[config_json["db"]]
 
-    class myHandler(SimpleHTTPRequestHandler):
+    class HTTPServerV6(HTTPServer):
+        address_family = socket.AF_INET6
+
+    class MyHandler(SimpleHTTPRequestHandler):
         def header_helper_200(self, mime_type, content_len):
             self.send_response(200)
             self.send_header("Content-Type", mime_type)
@@ -65,7 +69,7 @@ def run(config_json_path):
                 SimpleHTTPRequestHandler.do_GET(self)
 
     try:
-        server = HTTPServer(("", config_json["server_port"]), myHandler)
+        server = HTTPServerV6(("::", config_json["server_port"]), MyHandler)
         print "Started HTTPServer on port %d" % config_json["server_port"]
         server.serve_forever()
     except KeyboardInterrupt:
