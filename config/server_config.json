@@ -1,7 +1,7 @@
 {
     "db_host": "127.0.0.1",
     "db_port": 27017,
-    "server_port": 8888,
+    "server_port": 1082,
     "db": "func_detector",
     "unknown_collection": "func_unknown",
     "known_collection": "func_known",
