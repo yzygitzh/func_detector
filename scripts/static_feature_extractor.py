@@ -12,77 +12,81 @@ def collector_func(apk_path_list, class_dict, output_dir, apktool_path):
     """
     for apk_path in apk_path_list:
         package_name = apk_path.split("/")[-1][:-len(".apk")]
-        for class_name in class_dict:
-            print package_name
-            if package_name in class_dict[class_name]:
-                package_dict = {}
-                try:
-                    subprocess.call([
-                        "java", "-jar", apktool_path, "d",
-                        "-o", "%s/%s" % (output_dir, package_name),
-                        "-s", apk_path
-                    ])
-                    # get permission list, activity/service/provider/receiver/lib names
-                    manifest_path = "%s/%s/AndroidManifest.xml" % (output_dir, package_name)
-                    manifest_root = ElementTree.parse(manifest_path).getroot()
-                    permission_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
-                                                for x in manifest_root.getchildren() if "permission" in x.tag]))
+        print package_name
+        package_dict = {}
+        try:
+            subprocess.call([
+                "java", "-jar", apktool_path, "d",
+                "-o", "%s/%s" % (output_dir, package_name),
+                "-s", apk_path
+            ])
+            # get permission list, activity/service/provider/receiver/lib names
+            manifest_path = "%s/%s/AndroidManifest.xml" % (output_dir, package_name)
+            manifest_root = ElementTree.parse(manifest_path).getroot()
+            permission_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
+                                        for x in manifest_root.getchildren() if "permission" in x.tag]))
 
-                    application_node = [x for x in manifest_root.getchildren() if "application" in x.tag][0]
-                    activity_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
-                                              for x in application_node.getchildren() if "activity" in x.tag]))
-                    service_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
-                                             for x in application_node.getchildren() if "service" in x.tag]))
-                    receiver_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
-                                              for x in application_node.getchildren() if "receiver" in x.tag]))
-                    provider_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
-                                              for x in application_node.getchildren() if "receiver" in x.tag]))
-                    library_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
-                                             for x in application_node.getchildren() if "uses-library" in x.tag]))
+            application_node = [x for x in manifest_root.getchildren() if "application" in x.tag][0]
+            activity_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
+                                        for x in application_node.getchildren() if "activity" in x.tag]))
+            service_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
+                                        for x in application_node.getchildren() if "service" in x.tag]))
+            receiver_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
+                                        for x in application_node.getchildren() if "receiver" in x.tag]))
+            provider_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
+                                        for x in application_node.getchildren() if "receiver" in x.tag]))
+            library_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
+                                        for x in application_node.getchildren() if "uses-library" in x.tag]))
 
-                    # get public text id's and string/plural/arrays
-                    public_xml_path = "%s/%s/res/values/public.xml" % (output_dir, package_name)
-                    public_xml_root = ElementTree.parse(public_xml_path).getroot()
-                    public_string_list = list(set([(x.attrib["type"], x.attrib["name"])
-                                                   for x in public_xml_root.getchildren()
-                                                   if "APKTOOL_DUMMY" not in x.attrib["name"]]))
-
-                    string_xml_path = "%s/%s/res/values/strings.xml" % (output_dir, package_name)
-                    string_xml_root = ElementTree.parse(string_xml_path).getroot()
-                    string_list = list(set([x.text for x in string_xml_root.getchildren()
+            # get public text id's and string/plural/arrays
+            public_xml_path = "%s/%s/res/values/public.xml" % (output_dir, package_name)
+            public_xml_root = ElementTree.parse(public_xml_path).getroot()
+            public_string_list = list(set([(x.attrib["type"], x.attrib["name"])
+                                            for x in public_xml_root.getchildren()
                                             if "APKTOOL_DUMMY" not in x.attrib["name"]]))
 
-                    plurals_xml_path = "%s/%s/res/values/plurals.xml" % (output_dir, package_name)
-                    plurals_xml_root = ElementTree.parse(plurals_xml_path).getroot()
-                    plurals_list = [[y.text for y in x.getchildren()]
-                                    for x in plurals_xml_root.getchildren()
-                                    if "APKTOOL_DUMMY" not in x.attrib["name"]]
+            string_xml_path = "%s/%s/res/values/strings.xml" % (output_dir, package_name)
+            string_xml_root = ElementTree.parse(string_xml_path).getroot()
+            string_list = list(set([x.text for x in string_xml_root.getchildren()
+                                    if "APKTOOL_DUMMY" not in x.attrib["name"]]))
 
-                    str_array_xml_path = "%s/%s/res/values/arrays.xml" % (output_dir, package_name)
-                    str_array_xml_root = ElementTree.parse(str_array_xml_path).getroot()
-                    str_array_list = [[y.text for y in x.getchildren()]
-                                      for x in str_array_xml_root.getchildren()
-                                      if "string-array" in x.tag]
+            plurals_xml_path = "%s/%s/res/values/plurals.xml" % (output_dir, package_name)
+            plurals_xml_root = ElementTree.parse(plurals_xml_path).getroot()
+            plurals_list = [[y.text for y in x.getchildren()]
+                            for x in plurals_xml_root.getchildren()
+                            if "APKTOOL_DUMMY" not in x.attrib["name"]]
 
-                    # do output
-                    package_dict["permission"] = permission_list
-                    package_dict["activity"] = activity_list
-                    package_dict["service"] = service_list
-                    package_dict["receiver"] = receiver_list
-                    package_dict["provider"] = provider_list
-                    package_dict["library"] = library_list
-                    package_dict["strings"] = string_list
-                    package_dict["plurals"] = plurals_list
-                    package_dict["string_arrays"] = str_array_list
-                    with open("%s/%s.json" % (output_dir, package_name), "w") as output_file:
-                        json.dump(package_dict, output_file)
+            str_array_xml_path = "%s/%s/res/values/arrays.xml" % (output_dir, package_name)
+            str_array_xml_root = ElementTree.parse(str_array_xml_path).getroot()
+            str_array_list = [[y.text for y in x.getchildren()]
+                                for x in str_array_xml_root.getchildren()
+                                if "string-array" in x.tag]
 
-                    # delete decoded files
-                    subprocess.call([
-                        "rm", "-rf", "%s/%s" % (output_dir, package_name)
-                    ])
-                except Exception as e:
-                    print "%s failed" % package_name
+            # do output
+            package_dict["permission"] = permission_list
+            package_dict["activity"] = activity_list
+            package_dict["service"] = service_list
+            package_dict["receiver"] = receiver_list
+            package_dict["provider"] = provider_list
+            package_dict["library"] = library_list
+            package_dict["strings"] = string_list
+            package_dict["plurals"] = plurals_list
+            package_dict["string_arrays"] = str_array_list
+
+            package_dict["class"] = []
+            for class_name in class_dict:
+                if package_name in class_dict[class_name]:
+                    package_dict["class"].append(class_name)
+
+            with open("%s/%s.json" % (output_dir, package_name), "w") as output_file:
+                json.dump(package_dict, output_file)
+
+            # delete decoded files
+            subprocess.call([
+                "rm", "-rf", "%s/%s" % (output_dir, package_name)
+            ])
+        except Exception as e:
+            print "%s failed" % package_name
 
 
 def run(config_json_path):
