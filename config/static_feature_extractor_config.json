@@ -1,7 +1,7 @@
 {
-    "apk_dir": "/mnt/data/top_apps_data/top_apps_download/googleplay_apks",
-    "class_dir": "/mnt/data/top_apps_data/top_apps_list/",
-    "output_dir": "/mnt/data/static_feature_extractor_out/",
-    "apktool_path": "/home/yzy/2016_autumn/func_detector/lib/apktool_2.2.1.jar",
+    "apk_dir": "/mnt/EXT_volume/lab_data/top_apps_data/top_apps_download/googleplay_apks",
+    "class_dir": "/mnt/EXT_volume/lab_data/top_apps_data/top_apps_list/",
+    "output_dir": "/mnt/EXT_volume/lab_data/static_feature_extractor_out/",
+    "apktool_path": "/mnt/EXT_volume/projects/func_detector/lib/apktool_2.2.1.jar",
     "process_num": 8
 }

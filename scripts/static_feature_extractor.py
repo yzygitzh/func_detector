@@ -1,18 +1,49 @@
 from multiprocessing import Process
+from xml.etree import ElementTree
 
 import json
 import os
 import argparse
+import subprocess
 
-def collector_func(apk_path_list, class_dict, output_path, apktool_path):
+def collector_func(apk_path_list, class_dict, output_dir, apktool_path):
     """
     assemble the data from droidbot
     """
     for apk_path in apk_path_list:
         package_name = apk_path.split("/")[-1][:-len(".apk")]
         for class_name in class_dict:
+            print package_name
             if package_name in class_dict[class_name]:
-                print package_name
+                try:
+                    subprocess.call([
+                        "java", "-jar", apktool_path, "d",
+                        "-o", "%s/%s" % (output_dir, package_name),
+                        "-s", apk_path
+                    ])
+                    # get permission list, activity/service/provider/receiver/lib names
+                    manifest_path = "%s/%s/AndroidManifest.xml" % (output_dir, package_name)
+                    manifest_root = ElementTree.parse(manifest_path).getroot()
+                    permission_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
+                                                for x in manifest_root.getchildren() if "permission" in x.tag]))
+
+                    application_node = [x for x in manifest_root.getchildren() if "application" in x.tag][0]
+                    activity_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
+                                              for x in application_node.getchildren() if "activity" in x.tag]))
+                    service_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
+                                             for x in application_node.getchildren() if "service" in x.tag]))
+                    receiver_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
+                                              for x in application_node.getchildren() if "receiver" in x.tag]))
+                    provider_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
+                                              for x in application_node.getchildren() if "receiver" in x.tag]))
+                    library_list = list(set([x.attrib["{http://schemas.android.com/apk/res/android}name"]
+                                             for x in application_node.getchildren() if "uses-library" in x.tag]))
+
+                    string_path = "%s/%s/res/values/strings.xml" % (output_dir, package_name)
+                    # delete decoded files
+                except Exception as e:
+                    print "%s failed" % package_name
+                    print e
 
 
 def run(config_json_path):
@@ -23,14 +54,14 @@ def run(config_json_path):
 
     apk_dir = os.path.abspath(config_json["apk_dir"])
     class_dir = os.path.abspath(config_json["class_dir"])
-    output_path = os.path.abspath(config_json["output_dir"])
+    output_dir = os.path.abspath(config_json["output_dir"])
     apktool_path = os.path.abspath(config_json["apktool_path"])
     process_num = config_json["process_num"]
 
     # build class dict
     class_dict = {}
     class_file_path_list = ["%s/%s" % (class_dir, x)
-                            for x in os.walk(apk_dir).next()[2]]
+                            for x in os.walk(class_dir).next()[2]]
     for class_file_path in class_file_path_list:
         with open(class_file_path, "r") as class_file:
             class_name = class_file_path.split("/")[-1][len("top_apps_in_"):-len(".txt")]
@@ -46,7 +77,7 @@ def run(config_json_path):
     for i in range(process_num):
         collector_list.append(Process(target=collector_func, args=(
             apk_path_list[i * apk_path_trunk_len: (i + 1) * apk_path_trunk_len],
-            class_dict, output_path, apktool_path)))
+            class_dict, output_dir, apktool_path)))
         collector_list[-1].start()
 
     for collector in collector_list:
