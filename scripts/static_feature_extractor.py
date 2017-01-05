@@ -84,6 +84,7 @@ def collector_func(apk_path_list, class_dict, output_dir, apktool_path):
             package_dict["receiver"] = receiver_list
             package_dict["provider"] = provider_list
             package_dict["library"] = library_list
+            package_dict["public"] = public_string_list
             package_dict["strings"] = string_list
             package_dict["plurals"] = plurals_list
             package_dict["string_arrays"] = str_array_list
