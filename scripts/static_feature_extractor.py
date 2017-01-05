@@ -44,9 +44,9 @@ def collector_func(apk_path_list, class_dict, output_dir, apktool_path):
             # get public text id's and string/plural/arrays
             public_xml_path = "%s/%s/res/values/public.xml" % (output_dir, package_name)
             public_xml_root = ElementTree.parse(public_xml_path).getroot()
-            public_string_list = list(set([(x.attrib["type"], x.attrib["name"])
-                                            for x in public_xml_root.getchildren()
-                                            if "APKTOOL_DUMMY" not in x.attrib["name"]]))
+            public_string_list = list(set([x.attrib["name"]
+                                           for x in public_xml_root.getchildren()
+                                           if "APKTOOL_DUMMY" not in x.attrib["name"]]))
         except Exception as e:
             print e
 
