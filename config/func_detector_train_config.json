@@ -5,6 +5,8 @@
     "mode": "select_feature",
     "feature_dim_number": {
         "manifest": 0.1,
-        "string": 0.1
+        "string": 0.1,
+        "public": 0.1,
+        "permission": 0.5
     }
 }

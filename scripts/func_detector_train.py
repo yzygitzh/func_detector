@@ -8,6 +8,7 @@ from nltk.stem import WordNetLemmatizer
 from nltk.stem.porter import PorterStemmer
 from nltk.corpus import stopwords
 
+from sklearn.feature_selection import SelectKBest, mutual_info_classif
 
 # some init
 wnl = WordNetLemmatizer()
@@ -117,7 +118,7 @@ def build_sample_vecs(sample_list, config_json):
             dim_word_set["string"] = dim_word_set["string"].union(set(sample[dim_name]))
         for dim_name in ["permission", "public"]:
             dim_word_set[dim_name] = dim_word_set[dim_name].union(set(sample[dim_name]))
-        if count == 1:
+        if count == 2:
             break
 
     # build list for mi calc, transform back to set later
@@ -131,11 +132,9 @@ def build_sample_vecs(sample_list, config_json):
     for label in label_set:
         sample_vec[label] = []
 
+    count = 0
     for sample in sample_list:
-        print sample["class"]
-        break
-
-    for sample in sample_list:
+        count += 1
         vec = {
             "manifest": set(),
             "string": set(),
@@ -154,10 +153,29 @@ def build_sample_vecs(sample_list, config_json):
 
         for label in sample["class"]:
             sample_vec[label].append(vec)
-        break
+        if count == 2:
+            break
 
-    print sample_vec
-    # vec_space["WEATHER"]["manifest"] = ["snow", "rain", ...]
+    for label in label_set:
+        for dim_name in dim_word_set:
+            normalized_positive_sample_list = [x[dim_name] for x in sample_vec[label]]
+            positive_label_list = [1 for x in range(len(normalized_positive_sample_list))]
+
+            normalized_negative_sample_list = []
+            for other_label in label_set - set([label]):
+                normalized_negative_sample_list += [x[dim_name] for x in sample_vec[other_label]]
+            negative_label_list = [0 for x in range(len(normalized_negative_sample_list))]
+
+            X = normalized_positive_sample_list + normalized_negative_sample_list
+            y = positive_label_list + negative_label_list
+            # mi = SelectKBest(mutual_info_classif, k=config_json[dim_name]*len(X))
+            mi = mutual_info_classif(X, y, discrete_features=True)
+            sorted_mi = sorted(enumerate(mi), key=lambda x:x[1], reverse=True)
+            selected_features = sorted_mi[:int(config_json["feature_dim_number"][dim_name]*len(X[0]))]
+            print "AAAAAAAAAAAAAAAAAAAAAAAA"
+            for idx_tuple in selected_features:
+                print dim_word_list[dim_name][idx_tuple[0]]
+
 
 
 def run(config_json_path):
