@@ -2,7 +2,7 @@
     "feature_dir": "/mnt/EXT_volume/lab_data/static_feature_extractor_out/",
     "data_output_dir": "/mnt/EXT_volume/lab_data/func_detector_train_data/",
     "model_output_dir": "/mnt/EXT_volume/lab_data/func_detector_train_out/",
-    "mode": "data",
+    "mode": "select_feature",
     "feature_dim_number": {
         "manifest": 0.1,
         "string": 0.1
