@@ -10,6 +10,7 @@ from nltk.stem.porter import PorterStemmer
 from nltk.corpus import stopwords
 
 from sklearn.feature_selection import SelectKBest, mutual_info_classif
+import scipy.sparse
 
 # some init
 wnl = WordNetLemmatizer()
@@ -125,6 +126,8 @@ def select_feature(sample_list, config_json):
             dim_word_set["string"] = dim_word_set["string"].union(set(sample[dim_name]))
         for dim_name in ["permission", "public"]:
             dim_word_set[dim_name] = dim_word_set[dim_name].union(set(sample[dim_name]))
+        if count == 20:
+            break
 
     # build list for mi calc, transform back to set later
     dim_word_list = {}
@@ -155,10 +158,13 @@ def select_feature(sample_list, config_json):
             vec[dim_name] = vec[dim_name].union(set(sample[dim_name]))
 
         for dim_name in vec:
-            vec[dim_name] = cast_sample(vec[dim_name], dim_word_list[dim_name])
+            vec[dim_name] = scipy.sparse.csr_matrix(
+                cast_sample(vec[dim_name], dim_word_list[dim_name]))
 
         for label in sample["class"]:
             sample_vec[label].append(vec)
+        if count == 20:
+            break
 
     selected_feature_dict = {}
     for label in label_set:
@@ -173,7 +179,9 @@ def select_feature(sample_list, config_json):
             negative_label_list = [0 for x in range(len(normalized_negative_sample_list))]
 
             X = normalized_positive_sample_list + normalized_negative_sample_list
+            X = scipy.sparse.vstack(X, format="csr")
             y = positive_label_list + negative_label_list
+
             logging.debug("[MI START]: %s, %s" % (label, dim_name))
             mi = mutual_info_classif(X, y, discrete_features=True)
             logging.debug("[MI END]: %s, %s" % (label, dim_name))
