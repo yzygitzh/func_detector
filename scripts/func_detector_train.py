@@ -2,6 +2,7 @@ import json
 import os
 import argparse
 import re
+import logging
 
 import nltk
 from nltk.stem import WordNetLemmatizer
@@ -13,14 +14,20 @@ from sklearn.feature_selection import SelectKBest, mutual_info_classif
 # some init
 wnl = WordNetLemmatizer()
 stemmer = PorterStemmer()
-stop = stopwords.words('english')
-first_cap_re = re.compile('(.)([A-Z][a-z]+)')
-all_cap_re = re.compile('([a-z0-9])([A-Z])')
+stop = stopwords.words("english")
+first_cap_re = re.compile("(.)([A-Z][a-z]+)")
+all_cap_re = re.compile("([a-z0-9])([A-Z])")
+
+logging.basicConfig(level=logging.DEBUG,
+                    format="%(asctime)s %(filename)s[line:%(lineno)d] %(message)s",
+                    datefmt="%d-%m-%Y %H:%M:%S",
+                    filename="func_detector_train.log",
+                    filemode="w")
 
 
 def id_convert(name):
-    s1 = first_cap_re.sub(r'\1_\2', name)
-    return all_cap_re.sub(r'\1_\2', s1).lower()
+    s1 = first_cap_re.sub(r"\1_\2", name)
+    return all_cap_re.sub(r"\1_\2", s1).lower()
 
 
 def clean_text(feature_text, dot_split=True):
@@ -41,7 +48,7 @@ def clean_text(feature_text, dot_split=True):
             if new_word.encode("utf-8").isalpha() and new_word not in stop:
                 ret_obj.add(new_word)
         except Exception as e:
-            print e
+            logging.warning(e)
     return ret_obj
 
 
@@ -91,15 +98,15 @@ def cast_sample(sample, vec_space):
     return ret_list
 
 
-def build_sample_vecs(sample_list, config_json):
+def select_feature(sample_list, config_json):
     # sample_vec["WEATHER"][0]["manifest"] = ["weather", "rain", ...]
     # vec_space["WEATHER"]["manifest"] = ["snow", "rain", ...]
 
     # select features in different dimensions by calculating mi
-    # using sklearn's method
+    # using sklearn"s method
 
     # calc label set
-    # calc the whole word set for feature dim's
+    # calc the whole word set for feature dim"s
     label_set = set()
     dim_word_set = {
         "manifest": set(),
@@ -109,7 +116,7 @@ def build_sample_vecs(sample_list, config_json):
     }
     count = 0
     for sample in sample_list:
-        print "%s/%s" % (str(count), str(len(sample_list)))
+        logging.debug("[Counting Words]: %s/%s" % (str(count), str(len(sample_list))))
         count += 1
         label_set = label_set.union(set(sample["class"]))
         for dim_name in ["service", "activity", "library", "provider", "receiver"]:
@@ -118,8 +125,6 @@ def build_sample_vecs(sample_list, config_json):
             dim_word_set["string"] = dim_word_set["string"].union(set(sample[dim_name]))
         for dim_name in ["permission", "public"]:
             dim_word_set[dim_name] = dim_word_set[dim_name].union(set(sample[dim_name]))
-        if count == 2:
-            break
 
     # build list for mi calc, transform back to set later
     dim_word_list = {}
@@ -135,6 +140,7 @@ def build_sample_vecs(sample_list, config_json):
     count = 0
     for sample in sample_list:
         count += 1
+        logging.debug("[Building Samples]: %s/%s" % (str(count), str(len(sample_list))))
         vec = {
             "manifest": set(),
             "string": set(),
@@ -153,10 +159,10 @@ def build_sample_vecs(sample_list, config_json):
 
         for label in sample["class"]:
             sample_vec[label].append(vec)
-        if count == 2:
-            break
 
+    selected_feature_dict = {}
     for label in label_set:
+        selected_feature_dict[label] = {}
         for dim_name in dim_word_set:
             normalized_positive_sample_list = [x[dim_name] for x in sample_vec[label]]
             positive_label_list = [1 for x in range(len(normalized_positive_sample_list))]
@@ -168,14 +174,19 @@ def build_sample_vecs(sample_list, config_json):
 
             X = normalized_positive_sample_list + normalized_negative_sample_list
             y = positive_label_list + negative_label_list
-            # mi = SelectKBest(mutual_info_classif, k=config_json[dim_name]*len(X))
+            logging.debug("[MI START]: %s, %s" % (label, dim_name))
             mi = mutual_info_classif(X, y, discrete_features=True)
+            logging.debug("[MI END]: %s, %s" % (label, dim_name))
             sorted_mi = sorted(enumerate(mi), key=lambda x:x[1], reverse=True)
-            selected_features = sorted_mi[:int(config_json["feature_dim_number"][dim_name]*len(X[0]))]
-            print "AAAAAAAAAAAAAAAAAAAAAAAA"
-            for idx_tuple in selected_features:
-                print dim_word_list[dim_name][idx_tuple[0]]
+            # selected_feature_num = int(config_json["feature_dim_number"][dim_name]*len(X[0]))
+            # selected_feature_idx_mi = sorted_mi[:selected_feature_num]
+            # feature_text_list = [dim_word_list[dim_name][x[0]] for x in selected_feature_idx_mi]
 
+            feature_text_list = [(dim_word_list[dim_name][x[0]], x[1]) for x in sorted_mi]
+            selected_feature_dict[label][dim_name] = feature_text_list
+
+    with open("%s/selected_features.json" % config_json["selected_feature_output_dir"], "w") as feature_file:
+        json.dump(selected_feature_dict, feature_file, indent=2)
 
 
 def run(config_json_path):
@@ -194,19 +205,19 @@ def run(config_json_path):
                              for x in os.walk(feature_dir).next()[2]]
         count = 0
         for feature_path in feature_path_list:
-            print feature_path
-            print "%s/%s" % (str(count), str(len(feature_path_list)))
+            logging.debug(feature_path)
+            logging.debug("%s/%s" % (str(count), str(len(feature_path_list))))
             count += 1
             with open(feature_path, "r") as feature_file:
                 feature_obj = json.load(feature_file)
                 if "class" in feature_obj and len(feature_obj["class"]) > 0:
                     cleaned_obj = clean_obj_text(feature_obj)
                     with open("%s/%s" % (data_output_dir, feature_path.split("/")[-1]), "w") as output_file:
-                        json.dump(cleaned_obj, output_file)
+                        json.dump(cleaned_obj, output_file, indent=2)
     elif mode == "select_feature":
         data_path_list = ["%s/%s" % (data_output_dir, x)
                           for x in os.walk(data_output_dir).next()[2]]
-        print "assembling sample list..."
+        logging.debug("assembling sample list...")
         # assemble sample list
         sample_list = []
         for data_path in data_path_list:
@@ -214,10 +225,10 @@ def run(config_json_path):
                 data_obj = json.load(data_file)
                 if "class" in data_obj and len(data_obj["class"]) > 0:
                     sample_list.append(data_obj)
-        print "%s samples read." % (len(sample_list))
+        logging.debug("%s samples read." % (len(sample_list)))
         # build feature vectors
-        print "building feature vectors..."
-        build_sample_vecs(sample_list, config_json)
+        logging.debug("building feature vectors...")
+        select_feature(sample_list, config_json)
 
 def parse_args():
     """
