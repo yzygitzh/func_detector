@@ -1,3 +1,5 @@
+from multiprocessing import Process
+
 import json
 import os
 import argparse
@@ -99,6 +101,16 @@ def cast_sample(sample, vec_space):
     return ret_list
 
 
+def mi_worker(X, y, label, dim_name, dim_word_list, output_path):
+    logging.debug("[MI START]: %s, %s" % (label, dim_name))
+    mi = mutual_info_classif(X, y, discrete_features=True)
+    logging.debug("[MI END]: %s, %s" % (label, dim_name))
+    sorted_mi = sorted(enumerate(mi), key=lambda x:x[1], reverse=True)
+    feature_text_list = [(dim_word_list[dim_name][x[0]], x[1]) for x in sorted_mi]
+    with open("%s/%s-%s.json" % (output_path, label, dim_name), "w") as output_file:
+        json.dump(feature_text_list, output_file, indent=2)
+
+
 def select_feature(sample_list, config_json):
     # sample_vec["WEATHER"][0]["manifest"] = ["weather", "rain", ...]
     # vec_space["WEATHER"]["manifest"] = ["snow", "rain", ...]
@@ -118,7 +130,6 @@ def select_feature(sample_list, config_json):
     count = 0
     for sample in sample_list:
         logging.debug("[Counting Words]: %s/%s" % (str(count), str(len(sample_list))))
-        count += 1
         label_set = label_set.union(set(sample["class"]))
         for dim_name in ["service", "activity", "library", "provider", "receiver"]:
             dim_word_set["manifest"] = dim_word_set["manifest"].union(set(sample[dim_name]))
@@ -126,6 +137,7 @@ def select_feature(sample_list, config_json):
             dim_word_set["string"] = dim_word_set["string"].union(set(sample[dim_name]))
         for dim_name in ["permission", "public"]:
             dim_word_set[dim_name] = dim_word_set[dim_name].union(set(sample[dim_name]))
+        count += 1
         if count == 20:
             break
 
@@ -142,7 +154,6 @@ def select_feature(sample_list, config_json):
 
     count = 0
     for sample in sample_list:
-        count += 1
         logging.debug("[Building Samples]: %s/%s" % (str(count), str(len(sample_list))))
         vec = {
             "manifest": set(),
@@ -163,12 +174,12 @@ def select_feature(sample_list, config_json):
 
         for label in sample["class"]:
             sample_vec[label].append(vec)
+        count += 1
         if count == 20:
             break
 
-    selected_feature_dict = {}
+    mi_calc_task_pool = set()
     for label in label_set:
-        selected_feature_dict[label] = {}
         for dim_name in dim_word_set:
             normalized_positive_sample_list = [x[dim_name] for x in sample_vec[label]]
             positive_label_list = [1 for x in range(len(normalized_positive_sample_list))]
@@ -182,19 +193,18 @@ def select_feature(sample_list, config_json):
             X = scipy.sparse.vstack(X, format="csr")
             y = positive_label_list + negative_label_list
 
-            logging.debug("[MI START]: %s, %s" % (label, dim_name))
-            mi = mutual_info_classif(X, y, discrete_features=True)
-            logging.debug("[MI END]: %s, %s" % (label, dim_name))
-            sorted_mi = sorted(enumerate(mi), key=lambda x:x[1], reverse=True)
-            # selected_feature_num = int(config_json["feature_dim_number"][dim_name]*len(X[0]))
-            # selected_feature_idx_mi = sorted_mi[:selected_feature_num]
-            # feature_text_list = [dim_word_list[dim_name][x[0]] for x in selected_feature_idx_mi]
+            mi_calc_task_pool.add(Process(target=mi_worker, args=(
+                X, y, label, dim_name, dim_word_list, config_json["selected_feature_output_dir"])))
 
-            feature_text_list = [(dim_word_list[dim_name][x[0]], x[1]) for x in sorted_mi]
-            selected_feature_dict[label][dim_name] = feature_text_list
-
-    with open("%s/selected_features.json" % config_json["selected_feature_output_dir"], "w") as feature_file:
-        json.dump(selected_feature_dict, feature_file, indent=2)
+    while len(mi_calc_task_pool) > 0:
+        task_batch = []
+        for i in range(config_json["process_num"]):
+            if len(mi_calc_task_pool) == 0:
+                break
+            task_batch.append(mi_calc_task_pool.pop())
+            task_batch[-1].start()
+        for task in task_batch:
+            task.join()
 
 
 def run(config_json_path):

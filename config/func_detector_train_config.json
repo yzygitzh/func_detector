@@ -9,5 +9,6 @@
         "string": 0.1,
         "public": 0.1,
         "permission": 0.5
-    }
+    },
+    "process_num": 8
 }
