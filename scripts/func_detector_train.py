@@ -91,7 +91,6 @@ def clean_obj_text(feature_obj):
 
 
 def cast_sample(sample, vec_space):
-    # cast_sample["manifest"] = [0, 0, 1, ...]
     ret_list = []
     for word in vec_space:
         if word in sample:
@@ -99,6 +98,27 @@ def cast_sample(sample, vec_space):
         else:
             ret_list.append(0)
     return ret_list
+
+
+def clean_sample(sample, dim_word_list):
+    # activity, receiver, ... => manifest, ...
+    vec = {
+        "manifest": set(),
+        "string": set(),
+        "public": set(),
+        "permission": set()
+    }
+    for dim_name in ["service", "activity", "library", "provider", "receiver"]:
+        vec["manifest"] = vec["manifest"].union(set(sample[dim_name]))
+    for dim_name in ["strings", "plurals", "string_arrays"]:
+        vec["string"] = vec["string"].union(set(sample[dim_name]))
+    for dim_name in ["permission", "public"]:
+        vec[dim_name] = vec[dim_name].union(set(sample[dim_name]))
+
+    for dim_name in vec:
+        vec[dim_name] = scipy.sparse.csr_matrix(
+            cast_sample(vec[dim_name], dim_word_list[dim_name]))
+    return vec
 
 
 def mi_worker(X, y, label, dim_name, dim_word_list, output_path):
@@ -150,23 +170,7 @@ def select_feature(sample_list, config_json):
     count = 0
     for sample in sample_list:
         logging.debug("[Building Samples]: %s/%s" % (str(count), str(len(sample_list))))
-        vec = {
-            "manifest": set(),
-            "string": set(),
-            "public": set(),
-            "permission": set()
-        }
-        for dim_name in ["service", "activity", "library", "provider", "receiver"]:
-            vec["manifest"] = vec["manifest"].union(set(sample[dim_name]))
-        for dim_name in ["strings", "plurals", "string_arrays"]:
-            vec["string"] = vec["string"].union(set(sample[dim_name]))
-        for dim_name in ["permission", "public"]:
-            vec[dim_name] = vec[dim_name].union(set(sample[dim_name]))
-
-        for dim_name in vec:
-            vec[dim_name] = scipy.sparse.csr_matrix(
-                cast_sample(vec[dim_name], dim_word_list[dim_name]))
-
+        vec = clean_sample(sample, dim_word_list)
         for label in sample["class"]:
             sample_vec[label].append(vec)
         count += 1
@@ -200,6 +204,35 @@ def select_feature(sample_list, config_json):
             task.join()
 
 
+def read_samples(data_output_dir):
+    data_path_list = ["%s/%s" % (data_output_dir, x)
+                      for x in os.walk(data_output_dir).next()[2]]
+    logging.debug("assembling sample list...")
+    # assemble sample list
+    sample_list = []
+    for data_path in data_path_list:
+        with open(data_path, "r") as data_file:
+            data_obj = json.load(data_file)
+            if "class" in data_obj and len(data_obj["class"]) > 0:
+                sample_list.append(data_obj)
+    logging.debug("%s samples read." % (len(sample_list)))
+    return sample_list
+
+
+def read_features(selected_feature_output_dir):
+    # feature_dict["WEATHER"]["manifest"]
+    selected_feature_list = [(x, "%s/%s" % (selected_feature_output_dir, x))
+                             for x in os.walk(selected_feature_output_dir).next()[2]]
+    feature_dict = {}
+    for feature_tuple in selected_feature_list:
+        class_name, dim_name = feature_tuple[0].split("-")
+        if class_name not in feature_dict:
+            feature_dict[class_name] = {}
+        with open(feature_tuple, "w") as feature_file:
+            feature_dict[class_name][dim_name] = json.load(feature_file)
+    return feature_dict
+
+
 def run(config_json_path):
     """
     parse config file and assign work to multiple processes
@@ -208,6 +241,7 @@ def run(config_json_path):
 
     feature_dir = os.path.abspath(config_json["feature_dir"])
     data_output_dir = os.path.abspath(config_json["data_output_dir"])
+    selected_feature_output_dir = os.path.abspath(config_json["selected_feature_output_dir"])
     model_output_dir = os.path.abspath(config_json["model_output_dir"])
     mode = config_json["mode"]
 
@@ -228,18 +262,17 @@ def run(config_json_path):
     elif mode == "select_feature":
         data_path_list = ["%s/%s" % (data_output_dir, x)
                           for x in os.walk(data_output_dir).next()[2]]
-        logging.debug("assembling sample list...")
         # assemble sample list
-        sample_list = []
-        for data_path in data_path_list:
-            with open(data_path, "r") as data_file:
-                data_obj = json.load(data_file)
-                if "class" in data_obj and len(data_obj["class"]) > 0:
-                    sample_list.append(data_obj)
-        logging.debug("%s samples read." % (len(sample_list)))
+        sample_list = read_samples(data_output_dir)
         # build feature vectors
         logging.debug("building feature vectors...")
         select_feature(sample_list, config_json)
+    elif mode == "training":
+        # read back selected features
+        feature_dict = read_features(selected_feature_output_dir)
+        # assemble sample list, do cleaning
+        sample_list = read_samples(data_output_dir)
+
 
 def parse_args():
     """
