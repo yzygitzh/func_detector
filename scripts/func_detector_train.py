@@ -12,7 +12,12 @@ from nltk.stem.porter import PorterStemmer
 from nltk.corpus import stopwords
 
 from sklearn.feature_selection import SelectKBest, mutual_info_classif
+from sklearn import svm
+from sklearn.utils import shuffle
+from sklearn.model_selection import cross_val_score
+
 import scipy.sparse
+import pickle
 
 # some init
 wnl = WordNetLemmatizer()
@@ -204,32 +209,61 @@ def select_feature(sample_list, config_json):
             task.join()
 
 
+def trainer(sample_vec, model_output_path):
+    # sample_vec["WEATHER"][sample01, sample02, ...]
+    label_set = set(sample_vec.keys())
+    for label in label_set:
+        # assemble sample list
+        logging.debug("[Assemble Class]: %s" % str(label))
+        positive_list = sample_vec[label]
+        negative_list = []
+        for other_label in (label_set - set([label])):
+            negative_list.extend(sample_vec[other_label])
+        X = scipy.sparse.vstack(positive_list + negative_list)
+        y = [1 for x in positive_list] + [0 for x in negative_list]
+        X, y = shuffle(X, y)
+        clf = svm.SVC(class_weight="balanced")
+        logging.debug("[CV Training]: %s" % str(label))
+        scores = cross_val_score(clf, X, y, cv=5)
+        logging.debug("[Mean Precision]: %s: %s" % (str(label), str(scores)))
+        logging.debug("[Full Training]: %s" % str(label))
+        clf.fit(X, y)
+        with open("%s/%s.model" % (model_output_path, label), "w") as model_file:
+            pickle.dump(clf, model_file)
+
+
 def read_samples(data_output_dir):
     data_path_list = ["%s/%s" % (data_output_dir, x)
                       for x in os.walk(data_output_dir).next()[2]]
-    logging.debug("assembling sample list...")
     # assemble sample list
     sample_list = []
+    count = 0
     for data_path in data_path_list:
+        logging.debug("[Reading Samples]: %s/%s" % (str(count), str(len(data_path_list))))
         with open(data_path, "r") as data_file:
             data_obj = json.load(data_file)
             if "class" in data_obj and len(data_obj["class"]) > 0:
                 sample_list.append(data_obj)
-    logging.debug("%s samples read." % (len(sample_list)))
+        count += 1
     return sample_list
 
 
-def read_features(selected_feature_output_dir):
+def read_features(selected_feature_output_dir, config_json):
     # feature_dict["WEATHER"]["manifest"]
     selected_feature_list = [(x, "%s/%s" % (selected_feature_output_dir, x))
                              for x in os.walk(selected_feature_output_dir).next()[2]]
     feature_dict = {}
+    count = 0
     for feature_tuple in selected_feature_list:
-        class_name, dim_name = feature_tuple[0].split("-")
+        logging.debug("[Reading Features]: %s/%s" % (str(count), str(len(selected_feature_list))))
+        class_name, dim_name = feature_tuple[0][:-len(".json")].split("-")
         if class_name not in feature_dict:
             feature_dict[class_name] = {}
-        with open(feature_tuple, "w") as feature_file:
-            feature_dict[class_name][dim_name] = json.load(feature_file)
+        with open(feature_tuple[1], "r") as feature_file:
+            feature_list = json.load(feature_file)
+            feature_dict[class_name][dim_name] = [
+                x[0] for x in feature_list[:config_json["feature_dim_number"][dim_name]]]
+        count += 1
     return feature_dict
 
 
@@ -244,6 +278,8 @@ def run(config_json_path):
     selected_feature_output_dir = os.path.abspath(config_json["selected_feature_output_dir"])
     model_output_dir = os.path.abspath(config_json["model_output_dir"])
     mode = config_json["mode"]
+
+    logging.debug("MODE %s" % mode)
 
     if mode == "clean_text":
         feature_path_list = ["%s/%s" % (feature_dir, x)
@@ -269,10 +305,22 @@ def run(config_json_path):
         select_feature(sample_list, config_json)
     elif mode == "training":
         # read back selected features
-        feature_dict = read_features(selected_feature_output_dir)
+        feature_dict = read_features(selected_feature_output_dir, config_json)
         # assemble sample list, do cleaning
         sample_list = read_samples(data_output_dir)
-
+        sample_vec = {}
+        count = 0
+        for sample in sample_list:
+            logging.debug("[Cleaning Samples]: %s/%s" % (str(count), str(len(sample_list))))
+            for label in sample["class"]:
+                cleaned_sample = clean_sample(sample, feature_dict[label])
+                cleaned_sample = scipy.sparse.hstack([cleaned_sample[dim_name]
+                                                      for dim_name in sorted(cleaned_sample.keys())])
+                if label not in sample_vec:
+                    sample_vec[label] = []
+                sample_vec[label].append(cleaned_sample)
+            count += 1
+        trainer(sample_vec, config_json["model_output_dir"])
 
 def parse_args():
     """
