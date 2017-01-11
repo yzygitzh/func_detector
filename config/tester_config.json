@@ -1,13 +1,12 @@
 {
     "device_id_list": [
+        "192.168.56.101:5555",
         "192.168.56.102:5555",
-        "192.168.56.103:5555",
-        "192.168.56.104:5555",
-        "192.168.56.106:5555"
+        "192.168.56.103:5555"
     ],
-    "apk_directory": "/mnt/EXT_volume/lab_data/func_detector_data/app_list/COMMUNICATION/apps/",
+    "apk_directory": "/mnt/EXT_volume/lab_data/PERUIM_upgrade/PERUIM_apps/",
     "interval": 3,
-    "duration": 600,
+    "duration": 3600,
     "event_policy": "utg_dynamic",
-    "output_dir": "/mnt/EXT_volume/lab_data/func_detector_out/COMMUNICATION/"
+    "output_dir": "/mnt/EXT_volume/lab_data/PERUIM_upgrade/PERUIM_apps_droidbot_out/"
 }

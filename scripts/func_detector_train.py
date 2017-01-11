@@ -112,11 +112,8 @@ def mi_worker(X, y, label, dim_name, dim_word_list, output_path):
 
 
 def select_feature(sample_list, config_json):
-    # sample_vec["WEATHER"][0]["manifest"] = ["weather", "rain", ...]
-    # vec_space["WEATHER"]["manifest"] = ["snow", "rain", ...]
-
     # select features in different dimensions by calculating mi
-    # using sklearn"s method
+    # using sklearn's method
 
     # calc label set
     # calc the whole word set for feature dim"s
@@ -138,8 +135,6 @@ def select_feature(sample_list, config_json):
         for dim_name in ["permission", "public"]:
             dim_word_set[dim_name] = dim_word_set[dim_name].union(set(sample[dim_name]))
         count += 1
-        if count == 20:
-            break
 
     # build list for mi calc, transform back to set later
     dim_word_list = {}
@@ -175,8 +170,6 @@ def select_feature(sample_list, config_json):
         for label in sample["class"]:
             sample_vec[label].append(vec)
         count += 1
-        if count == 20:
-            break
 
     mi_calc_task_pool = set()
     for label in label_set:
