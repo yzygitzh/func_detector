@@ -209,9 +209,10 @@ def select_feature(sample_list, config_json):
             task.join()
 
 
-def trainer(sample_vec, model_output_path):
+def trainer(sample_vec, model_output_path, dim_num_label):
     # sample_vec["WEATHER"][sample01, sample02, ...]
     label_set = set(sample_vec.keys())
+    score_dict = {}
     for label in label_set:
         # assemble sample list
         logging.debug("[Assemble Class]: %s" % str(label))
@@ -223,22 +224,19 @@ def trainer(sample_vec, model_output_path):
         y = [1 for x in positive_list] + [0 for x in negative_list]
         X, y = shuffle(X, y)
         clf = svm.SVC(class_weight="balanced")
-        logging.debug("[CV Training]: %s" % str(label))
-        scores = cross_val_score(clf, X, y, cv=5)
-        logging.debug("[Mean Precision]: %s: %s" % (str(label), str(scores)))
-        logging.debug("[Full Training]: %s" % str(label))
-        clf.fit(X, y)
-        with open("%s/%s.model" % (model_output_path, label), "w") as model_file:
-            pickle.dump(clf, model_file)
+        logging.debug("[CV Training %s]: %s" % (str(dim_num_label), str(label)))
+        scores_precision = list(cross_val_score(clf, X, y, cv=5, scoring="precision"))
+        logging.debug("[Precision %s]: %s: %s" % (str(dim_num_label), str(label), str(scores_precision)))
+        scores_recall = list(cross_val_score(clf, X, y, cv=5, scoring="recall"))
+        logging.debug("[Recall %s]: %s: %s" % (str(dim_num_label), str(label), str(scores_recall)))
 
-        y_pred = clf.predict(X)
-        y_compare = [[y[i], y_pred[i]] for i in range(len(y))]
-        logging.debug("[0, 0]: %s: %s" % (str(label), str(len([x for x in y_compare if x == [0, 0]]))))
-        logging.debug("[0, 1]: %s: %s" % (str(label), str(len([x for x in y_compare if x == [0, 1]]))))
-        logging.debug("[1, 0]: %s: %s" % (str(label), str(len([x for x in y_compare if x == [1, 0]]))))
-        logging.debug("[1, 1]: %s: %s" % (str(label), str(len([x for x in y_compare if x == [1, 1]]))))
-        with open("%s/%s.train_predict" % (model_output_path, label), "w") as train_predict_file:
-            json.dump(y_compare, train_predict_file)
+        score_dict[label] = {"precision": scores_precision, "recall": scores_recall}
+        # logging.debug("[Full Training]: %s" % str(label))
+        # clf.fit(X, y)
+        # with open("%s/%s.model" % (model_output_path, label), "w") as model_file:
+        #    pickle.dump(clf, model_file)
+    with open("%s/%s.train_result" % (model_output_path, dim_num_label), "w") as train_result_file:
+        json.dump(score_dict, train_result_file, indent=2)
 
 
 def predicter(named_cleaned_sample_list, label, clf, predict_output_dir):
@@ -269,7 +267,7 @@ def read_samples(data_output_dir, predict_mode=False):
     return sample_list
 
 
-def read_features(selected_feature_output_dir, feature_dim_number):
+def read_features(selected_feature_output_dir):
     # feature_dict["WEATHER"]["manifest"]
     selected_feature_list = [(x, "%s/%s" % (selected_feature_output_dir, x))
                              for x in os.walk(selected_feature_output_dir).next()[2]]
@@ -282,10 +280,18 @@ def read_features(selected_feature_output_dir, feature_dim_number):
             feature_dict[class_name] = {}
         with open(feature_tuple[1], "r") as feature_file:
             feature_list = json.load(feature_file)
-            feature_dict[class_name][dim_name] = [
-                x[0] for x in feature_list[:feature_dim_number[dim_name]]]
+            feature_dict[class_name][dim_name] = [x[0] for x in feature_list]
         count += 1
     return feature_dict
+
+
+def clean_features(feature_dict, feature_dim_number):
+    ret_dict = {}
+    for class_name in feature_dict:
+        ret_dict[class_name] = {}
+        for dim_name in feature_dict[class_name]:
+            ret_dict[class_name][dim_name] = feature_dict[class_name][dim_name][:feature_dim_number[dim_name]]
+    return ret_dict
 
 
 def read_models(model_output_dir):
@@ -345,10 +351,15 @@ def run(config_json_path):
                                    for b in feature_dim_number["string"]
                                    for c in feature_dim_number["public"]
                                    for d in feature_dim_number["permission"]]
+        calc_process_set = set()
+        # read back features
+        origin_feature_dict = read_features(selected_feature_output_dir)
         for feature_dim_number_item in dim_number_combinations:
             logging.debug(str(feature_dim_number_item))
-            # read back selected features
-            feature_dict = read_features(selected_feature_output_dir, feature_dim_number_item)
+            # clean feature
+            feature_dict = clean_features(origin_feature_dict, feature_dim_number_item)
+            dim_number_label = "_".join([str(x[1]) for x in
+                                         sorted(feature_dim_number_item.items(), key=lambda x: x[0])])
             # assemble sample list, do cleaning
             if mode == "training":
                 sample_list = read_samples(data_output_dir)
@@ -364,7 +375,8 @@ def run(config_json_path):
                             sample_vec[label] = []
                         sample_vec[label].append(cleaned_sample)
                     count += 1
-                trainer(sample_vec, config_json["model_output_dir"])
+                calc_process_set.add(Process(target=trainer, args=(
+                    sample_vec, config_json["model_output_dir"], dim_number_label)))
             else:
                 # read back model
                 model_dict = read_models(model_output_dir)
@@ -378,6 +390,16 @@ def run(config_json_path):
                                                             for dim_name in sorted(cleaned_sample.keys())])
                         named_cleaned_sample_list.append((named_sample[0], cleaned_sample))
                     predicter(named_cleaned_sample_list, label, model_dict[label], config_json["predict_output_dir"])
+
+        while len(calc_process_set) > 0:
+            task_batch = []
+            for i in range(config_json["process_num"]):
+                if len(calc_process_set) == 0:
+                    break
+                task_batch.append(calc_process_set.pop())
+                task_batch[-1].start()
+            for task in task_batch:
+                task.join()
 
 
 def parse_args():
