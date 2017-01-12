@@ -231,14 +231,24 @@ def trainer(sample_vec, model_output_path):
         with open("%s/%s.model" % (model_output_path, label), "w") as model_file:
             pickle.dump(clf, model_file)
 
+        y_pred = clf.predict(X)
+        y_compare = [[y[i], y_pred[i]] for i in range(len(y))]
+        logging.debug("[0, 0]: %s: %s" % (str(label), str(len([x for x in y_compare if x == [0, 0]]))))
+        logging.debug("[0, 1]: %s: %s" % (str(label), str(len([x for x in y_compare if x == [0, 1]]))))
+        logging.debug("[1, 0]: %s: %s" % (str(label), str(len([x for x in y_compare if x == [1, 0]]))))
+        logging.debug("[1, 1]: %s: %s" % (str(label), str(len([x for x in y_compare if x == [1, 1]]))))
+        with open("%s/%s.train_predict" % (model_output_path, label), "w") as train_predict_file:
+            json.dump(y_compare, train_predict_file)
+
 
 def predicter(named_cleaned_sample_list, label, clf, predict_output_dir):
+    logging.debug("[Predicting]: %s" % str(label))
     X = scipy.sparse.vstack([x[1] for x in named_cleaned_sample_list])
     sample_name_list = [x[0] for x in named_cleaned_sample_list]
     y_pred = clf.predict(X)
-    predict_result = [[sample_name_list[i], y_pred[i]] for i in range(len(X))]
+    predict_result = [[sample_name_list[i], y_pred[i]] for i in range(len(sample_name_list))]
     with open("%s/%s.predict" % (predict_output_dir, label), "w") as predict_file:
-        json.dump(predict_result, predict_file)
+        json.dump(predict_result, predict_file, indent=2)
 
 
 def read_samples(data_output_dir, predict_mode=False):
@@ -248,7 +258,7 @@ def read_samples(data_output_dir, predict_mode=False):
     sample_list = []
     count = 0
     for data_path in data_path_list:
-        logging.debug("[Reading Samples]: %s/%s" % (str(count), str(len(data_path_list))))
+        # logging.debug("[Reading Samples]: %s/%s" % (str(count), str(len(data_path_list))))
         with open(data_path, "r") as data_file:
             data_obj = json.load(data_file)
             if predict_mode:
@@ -259,21 +269,21 @@ def read_samples(data_output_dir, predict_mode=False):
     return sample_list
 
 
-def read_features(selected_feature_output_dir, config_json):
+def read_features(selected_feature_output_dir, feature_dim_number):
     # feature_dict["WEATHER"]["manifest"]
     selected_feature_list = [(x, "%s/%s" % (selected_feature_output_dir, x))
                              for x in os.walk(selected_feature_output_dir).next()[2]]
     feature_dict = {}
     count = 0
     for feature_tuple in selected_feature_list:
-        logging.debug("[Reading Features]: %s/%s" % (str(count), str(len(selected_feature_list))))
+        # logging.debug("[Reading Features]: %s/%s" % (str(count), str(len(selected_feature_list))))
         class_name, dim_name = feature_tuple[0][:-len(".json")].split("-")
         if class_name not in feature_dict:
             feature_dict[class_name] = {}
         with open(feature_tuple[1], "r") as feature_file:
             feature_list = json.load(feature_file)
             feature_dict[class_name][dim_name] = [
-                x[0] for x in feature_list[:config_json["feature_dim_number"][dim_name]]]
+                x[0] for x in feature_list[:feature_dim_number[dim_name]]]
         count += 1
     return feature_dict
 
@@ -287,7 +297,7 @@ def read_models(model_output_dir):
         logging.debug("[Reading Model]: %s/%s" % (str(count), str(len(model_list))))
         with open(model_tuple[1], "r") as model_file:
             clf = pickle.load(model_file)
-            model_dict[model_tuple[0][:-len(".json")]] = clf
+            model_dict[model_tuple[0][:-len(".model")]] = clf
         count += 1
     return model_dict
 
@@ -303,6 +313,7 @@ def run(config_json_path):
     selected_feature_output_dir = os.path.abspath(config_json["selected_feature_output_dir"])
     model_output_dir = os.path.abspath(config_json["model_output_dir"])
     mode = config_json["mode"]
+    feature_dim_number = config_json["feature_dim_number"]
 
     logging.debug("MODE %s" % mode)
 
@@ -329,33 +340,44 @@ def run(config_json_path):
         logging.debug("building feature vectors...")
         select_feature(sample_list, config_json)
     elif mode in ["training", "predicting"]:
-        # read back selected features
-        feature_dict = read_features(selected_feature_output_dir, config_json)
-        # assemble sample list, do cleaning
-        if mode == "training":
-            sample_list = read_samples(data_output_dir)
-            sample_vec = {}
-            count = 0
-            for sample in sample_list:
-                logging.debug("[Cleaning Samples]: %s/%s" % (str(count), str(len(sample_list))))
-                for label in sample["class"]:
-                    cleaned_sample = clean_sample(sample, feature_dict[label])
-                    cleaned_sample = scipy.sparse.hstack([cleaned_sample[dim_name]
-                                                        for dim_name in sorted(cleaned_sample.keys())])
-                    if label not in sample_vec:
-                        sample_vec[label] = []
-                    sample_vec[label].append(cleaned_sample)
-                count += 1
-            trainer(sample_vec, config_json["model_output_dir"])
-        else:
-            # read back model
-            model_dict = read_models(model_output_dir)
-            # read samples
-            named_sample_list = read_samples(data_output_dir, predict_mode=True)
-            for label in model_dict:
-                named_cleaned_sample_list = [(x[0], clean_sample(x[1], feature_dict[label]))
-                                             for x in named_sample_list]
-                predicter(named_cleaned_sample_list, label, model_dict[label], config_json["predict_output_dir"])
+        dim_number_combinations = [{"manifest": a, "string": b, "public": c, "permission": d}
+                                   for a in feature_dim_number["manifest"]
+                                   for b in feature_dim_number["string"]
+                                   for c in feature_dim_number["public"]
+                                   for d in feature_dim_number["permission"]]
+        for feature_dim_number_item in dim_number_combinations:
+            logging.debug(str(feature_dim_number_item))
+            # read back selected features
+            feature_dict = read_features(selected_feature_output_dir, feature_dim_number_item)
+            # assemble sample list, do cleaning
+            if mode == "training":
+                sample_list = read_samples(data_output_dir)
+                sample_vec = {}
+                count = 0
+                for sample in sample_list:
+                    # logging.debug("[Cleaning Samples]: %s/%s" % (str(count), str(len(sample_list))))
+                    for label in sample["class"]:
+                        cleaned_sample = clean_sample(sample, feature_dict[label])
+                        cleaned_sample = scipy.sparse.hstack([cleaned_sample[dim_name]
+                                                            for dim_name in sorted(cleaned_sample.keys())])
+                        if label not in sample_vec:
+                            sample_vec[label] = []
+                        sample_vec[label].append(cleaned_sample)
+                    count += 1
+                trainer(sample_vec, config_json["model_output_dir"])
+            else:
+                # read back model
+                model_dict = read_models(model_output_dir)
+                # read samples
+                named_sample_list = read_samples(data_output_dir, predict_mode=True)
+                for label in model_dict:
+                    named_cleaned_sample_list = []
+                    for named_sample in named_sample_list:
+                        cleaned_sample = clean_sample(named_sample[1], feature_dict[label])
+                        cleaned_sample = scipy.sparse.hstack([cleaned_sample[dim_name]
+                                                            for dim_name in sorted(cleaned_sample.keys())])
+                        named_cleaned_sample_list.append((named_sample[0], cleaned_sample))
+                    predicter(named_cleaned_sample_list, label, model_dict[label], config_json["predict_output_dir"])
 
 
 def parse_args():

@@ -5,12 +5,13 @@
     "model_output_dir": "/mnt/EXT_volume/lab_data/func_detector_data/func_detector_train_model/",
     "predict_data_dir": "/mnt/EXT_volume/lab_data/func_detector_data/func_detector_predict_data/",
     "predict_output_dir": "/mnt/EXT_volume/lab_data/func_detector_data/func_detector_predict_out/",
-    "mode": "predicting",
+    "log_output_dir": "/mnt/EXT_volume/lab_data/func_detector_data/func_detector_log/",
+    "mode": "training",
     "feature_dim_number": {
-        "manifest": 200,
-        "string": 200,
-        "public": 200,
-        "permission": 20
+        "manifest": [20, 50, 100, 200],
+        "string": [20, 50, 100, 200],
+        "public": [20, 50, 100, 200],
+        "permission": [5, 10, 20]
     },
     "process_num": 8
 }
