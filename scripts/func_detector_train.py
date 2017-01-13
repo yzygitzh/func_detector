@@ -38,6 +38,18 @@ def id_convert(name):
     return all_cap_re.sub(r"\1_\2", s1).lower()
 
 
+def parallel_calc_task(calc_process_set, process_num):
+    while len(calc_process_set) > 0:
+        task_batch = []
+        for i in range(process_num):
+            if len(calc_process_set) == 0:
+                break
+            task_batch.append(calc_process_set.pop())
+            task_batch[-1].start()
+        for task in task_batch:
+            task.join()
+
+
 def clean_text(feature_text, dot_split=True):
     ret_obj = set()
     if feature_text is None or len(feature_text) > 10000:
@@ -198,15 +210,7 @@ def select_feature(sample_list, config_json):
             mi_calc_task_pool.add(Process(target=mi_worker, args=(
                 X, y, label, dim_name, dim_word_list, config_json["selected_feature_output_dir"])))
 
-    while len(mi_calc_task_pool) > 0:
-        task_batch = []
-        for i in range(config_json["process_num"]):
-            if len(mi_calc_task_pool) == 0:
-                break
-            task_batch.append(mi_calc_task_pool.pop())
-            task_batch[-1].start()
-        for task in task_batch:
-            task.join()
+    parallel_calc_task(mi_calc_task_pool, config_json["process_num"])
 
 
 def trainer(sample_vec, model_output_path, dim_num_label):
@@ -391,15 +395,7 @@ def run(config_json_path):
                         named_cleaned_sample_list.append((named_sample[0], cleaned_sample))
                     predicter(named_cleaned_sample_list, label, model_dict[label], config_json["predict_output_dir"])
 
-        while len(calc_process_set) > 0:
-            task_batch = []
-            for i in range(config_json["process_num"]):
-                if len(calc_process_set) == 0:
-                    break
-                task_batch.append(calc_process_set.pop())
-                task_batch[-1].start()
-            for task in task_batch:
-                task.join()
+        parallel_calc_task(calc_process_set, config_json["process_num"])
 
 
 def parse_args():
