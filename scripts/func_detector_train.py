@@ -19,6 +19,8 @@ from sklearn.model_selection import cross_val_score
 import scipy.sparse
 import pickle
 
+import numpy as np
+
 # some init
 wnl = WordNetLemmatizer()
 stemmer = PorterStemmer()
@@ -321,6 +323,7 @@ def run(config_json_path):
     feature_dir = os.path.abspath(config_json["feature_dir"])
     data_output_dir = os.path.abspath(config_json["data_output_dir"])
     selected_feature_output_dir = os.path.abspath(config_json["selected_feature_output_dir"])
+    tune_output_dir = os.path.abspath(config_json["tune_output_dir"])
     model_output_dir = os.path.abspath(config_json["model_output_dir"])
     mode = config_json["mode"]
     feature_dim_number = config_json["feature_dim_number"]
@@ -349,7 +352,7 @@ def run(config_json_path):
         # build feature vectors
         logging.debug("building feature vectors...")
         select_feature(sample_list, config_json)
-    elif mode in ["training", "predicting"]:
+    elif mode in ["tuning", "training", "predicting"]:
         dim_number_combinations = [{"manifest": a, "string": b, "public": c, "permission": d}
                                    for a in feature_dim_number["manifest"]
                                    for b in feature_dim_number["string"]
@@ -358,14 +361,15 @@ def run(config_json_path):
         calc_process_set = set()
         # read back features
         origin_feature_dict = read_features(selected_feature_output_dir)
-        for feature_dim_number_item in dim_number_combinations:
-            logging.debug(str(feature_dim_number_item))
-            # clean feature
-            feature_dict = clean_features(origin_feature_dict, feature_dim_number_item)
-            dim_number_label = "_".join([str(x[1]) for x in
-                                         sorted(feature_dim_number_item.items(), key=lambda x: x[0])])
-            # assemble sample list, do cleaning
-            if mode == "training":
+
+        if mode == "tuning":
+            for feature_dim_number_item in dim_number_combinations:
+                logging.debug(str(feature_dim_number_item))
+                # clean feature
+                feature_dict = clean_features(origin_feature_dict, feature_dim_number_item)
+                dim_number_label = "_".join([str(x[1]) for x in
+                                             sorted(feature_dim_number_item.items(), key=lambda x: x[0])])
+                # assemble sample list, do cleaning
                 sample_list = read_samples(data_output_dir)
                 sample_vec = {}
                 count = 0
@@ -374,26 +378,48 @@ def run(config_json_path):
                     for label in sample["class"]:
                         cleaned_sample = clean_sample(sample, feature_dict[label])
                         cleaned_sample = scipy.sparse.hstack([cleaned_sample[dim_name]
-                                                            for dim_name in sorted(cleaned_sample.keys())])
+                                                              for dim_name in sorted(cleaned_sample.keys())])
                         if label not in sample_vec:
                             sample_vec[label] = []
                         sample_vec[label].append(cleaned_sample)
                     count += 1
                 calc_process_set.add(Process(target=trainer, args=(
-                    sample_vec, config_json["model_output_dir"], dim_number_label)))
-            else:
-                # read back model
-                model_dict = read_models(model_output_dir)
-                # read samples
-                named_sample_list = read_samples(data_output_dir, predict_mode=True)
-                for label in model_dict:
-                    named_cleaned_sample_list = []
-                    for named_sample in named_sample_list:
-                        cleaned_sample = clean_sample(named_sample[1], feature_dict[label])
-                        cleaned_sample = scipy.sparse.hstack([cleaned_sample[dim_name]
-                                                            for dim_name in sorted(cleaned_sample.keys())])
-                        named_cleaned_sample_list.append((named_sample[0], cleaned_sample))
-                    predicter(named_cleaned_sample_list, label, model_dict[label], config_json["predict_output_dir"])
+                    sample_vec, config_json["tune_output_dir"], dim_number_label)))
+        elif mode == "training":
+            named_para_path_list = [(x[:-len(".train_result")], "%s/%s" % (tune_output_dir, x))
+                                    for x in os.walk(tune_output_dir).next()[2]]
+            best_para = {}
+            for para_label, para_path in named_para_path_list:
+                with open(para_path, "r") as para_file:
+                    para_json = json.load(para_file)
+                    for class_name in para_json:
+                        new_precision = np.mean(para_json[class_name]["precision"])
+                        new_recall = np.mean(para_json[class_name]["recall"])
+                        new_f1 = 2.0 * new_precision * new_recall / (new_precision + new_recall)
+                        if class_name not in best_para:
+                            best_para[class_name] = {"label": para_label, "f1": new_f1,
+                                                     "precision": new_precision, "recall": new_recall}
+                        else:
+                            if new_f1 > best_para[class_name]["f1"]:
+                                best_para[class_name]["label"] = para_label
+                                best_para[class_name]["f1"] = new_f1
+                                best_para[class_name]["precision"] = new_precision
+                                best_para[class_name]["recall"] = new_recall
+            with open("best_para.json", "w") as dump_file:
+                json.dump(best_para, dump_file, indent=2)
+        else:
+            # read back model
+            model_dict = read_models(model_output_dir)
+            # read samples
+            named_sample_list = read_samples(data_output_dir, predict_mode=True)
+            for label in model_dict:
+                named_cleaned_sample_list = []
+                for named_sample in named_sample_list:
+                    cleaned_sample = clean_sample(named_sample[1], feature_dict[label])
+                    cleaned_sample = scipy.sparse.hstack([cleaned_sample[dim_name]
+                                                        for dim_name in sorted(cleaned_sample.keys())])
+                    named_cleaned_sample_list.append((named_sample[0], cleaned_sample))
+                predicter(named_cleaned_sample_list, label, model_dict[label], config_json["predict_output_dir"])
 
         parallel_calc_task(calc_process_set, config_json["process_num"])
 

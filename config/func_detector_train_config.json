@@ -2,6 +2,7 @@
     "feature_dir": "/mnt/EXT_volume/lab_data/func_detector_data/static_feature_extractor_out/",
     "data_output_dir": "/mnt/EXT_volume/lab_data/func_detector_data/func_detector_train_data/",
     "selected_feature_output_dir": "/mnt/EXT_volume/lab_data/func_detector_data/func_detector_train_feature/",
+    "tune_output_dir": "/mnt/EXT_volume/lab_data/func_detector_data/func_detector_train_best_para/",
     "model_output_dir": "/mnt/EXT_volume/lab_data/func_detector_data/func_detector_train_model/",
     "predict_data_dir": "/mnt/EXT_volume/lab_data/func_detector_data/func_detector_predict_data/",
     "predict_output_dir": "/mnt/EXT_volume/lab_data/func_detector_data/func_detector_predict_out/",
