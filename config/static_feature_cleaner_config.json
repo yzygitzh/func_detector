@@ -1,0 +1,6 @@
+{
+    "feature_dir": "/mnt/EXT_volume/lab_data/func_detector_data/googleplay_apps_static_feature_extractor_out/",
+    "data_output_dir": "/mnt/EXT_volume/lab_data/func_detector_data/googleplay_apps_static_feature_cleaned_combine/",
+    "word_repeat": false,
+    "word_combine": true
+}
