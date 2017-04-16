@@ -119,7 +119,7 @@ def parse_args():
     """
     parse command line input
     """
-    parser = argparse.ArgumentParser(description="train static features from apk")
+    parser = argparse.ArgumentParser(description="clean static features from apk")
     parser.add_argument("-c", action="store", dest="config_json_path",
                         required=True, help="path to config json file")
     options = parser.parse_args()
