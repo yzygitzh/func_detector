@@ -21,8 +21,10 @@
 * scripts/analysis/func_detector_train.py
     * clean text features collected by static_feature_extractor (into sets, without tf info)
     * select features based on mutual information
-    * train, tune classifiers for app functionalities;
+    * train, tune classifiers for app functionalities
     * predict functionalities of an app
+* scripts/analysis/func_cluster_lda.py
+    * train LDA clusters for app functionalities
 * visualizer/*
     * web pages for marking app functionalities manually
 
