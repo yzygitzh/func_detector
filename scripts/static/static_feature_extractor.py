@@ -11,6 +11,8 @@ def collector_func(apk_path_list, class_dict, output_dir, apktool_path):
     assemble the data from droidbot
     """
     for apk_path in apk_path_list:
+        if not apk_path.endswith("apk"):
+            continue
         package_name = apk_path.split("/")[-1][:-len(".apk")]
         print package_name
         package_dict = {}
