@@ -7,6 +7,8 @@
 ## Static Data Collection
 * scripts/static_feature_extractor
     * extract static text features from apps
+    * apps must be named after their package names
+    * app package name lists named in top_apps_in_SOMECLASS.txt must be provided
 
 ## Analysis Tools
 * scripts/data_cleaner.py
