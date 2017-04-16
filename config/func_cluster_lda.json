@@ -1,0 +1,8 @@
+{
+    "feature_dir": "/mnt/EXT_volume/lab_data/func_detector_data/static_features/googleplay_apps_static_feature_cleaned_repeat_combine/",
+    "data_output_dir": "/mnt/EXT_volume/lab_data/func_detector_data/train_results/lda/",
+    "word_combine": true,
+    "n_features": 1000,
+    "n_topics": 20,
+    "n_top_words": 20
+}
