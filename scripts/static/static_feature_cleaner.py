@@ -23,6 +23,10 @@ def id_convert(name):
     s1 = first_cap_re.sub(r"\1_\2", name)
     return all_cap_re.sub(r"\1_\2", s1).lower()
 
+def break_id_into_string(name):
+    underline_split = name.split("_")
+    converted_underline_split = [" ".join(id_convert(x).split("_")) for x in underline_split]
+    return " ".join(converted_underline_split)
 
 def clean_text(feature_text, dot_split=True):
     ret_obj = []
@@ -30,11 +34,9 @@ def clean_text(feature_text, dot_split=True):
         return ret_obj
 
     if dot_split:
-        feature_words = [x for x in " ".join(
-            [" ".join(id_convert(x).split("_")) for x in feature_text.split(".")]
-        ).split(" ") if len(x) > 0]
+        feature_words = nltk.word_tokenize(" ".join([break_id_into_string(x) for x in feature_text.split(".")]))
     else:
-        feature_words = nltk.word_tokenize(feature_text)
+        feature_words = nltk.word_tokenize(break_id_into_string(feature_text))
 
     for feature_word in feature_words:
         if len(feature_word) < 3:
